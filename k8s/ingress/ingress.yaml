@@ -1,0 +1,142 @@
+---
+# ============================================================
+# NGINX Ingress for n8n RAG Platform
+#
+# Traffic flow:
+#   Browser ──HTTPS──► nginx ingress
+#     /auth/*     ──► Keycloak         (no auth gate)
+#     /oauth2/*   ──► oauth2-proxy     (no auth gate — this IS the auth)
+#     /n8n/*      ──► n8n              (protected: auth-url check via oauth2-proxy)
+#
+# TLS certificate auto-provisioned by cert-manager / Let's Encrypt.
+# ============================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: n8n-rag-ingress
+  namespace: google-rag
+  labels:
+    app.kubernetes.io/part-of: n8n-rag-platform
+  annotations:
+    # Use nginx ingress controller
+    kubernetes.io/ingress.class: "nginx"
+    # TLS certificate — cert-manager issues via Let's Encrypt HTTP-01
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
+    # ---- Proxy settings ----
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+
+    # Force HTTPS
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+
+    # Forward real IP and protocol to upstream services
+    nginx.ingress.kubernetes.io/use-forwarded-headers: "true"
+    nginx.ingress.kubernetes.io/compute-full-forwarded-for: "true"
+
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - rawhideron.duckdns.org
+      secretName: n8n-rag-tls
+
+  rules:
+    - host: rawhideron.duckdns.org
+      http:
+        paths:
+
+          # ---- Keycloak (auth provider — must be first, no auth gate) ----
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak
+                port:
+                  number: 8080
+
+          # ---- oauth2-proxy endpoints (login flow, callback, auth check) ----
+          - path: /oauth2
+            pathType: Prefix
+            backend:
+              service:
+                name: oauth2-proxy
+                port:
+                  number: 4180
+
+          # ---- n8n UI (protected by oauth2-proxy external auth) ----
+          - path: /n8n
+            pathType: Prefix
+            backend:
+              service:
+                name: n8n
+                port:
+                  number: 5678
+
+---
+# Separate Ingress for /n8n/ with external auth annotations.
+# NGINX processes annotations per-Ingress, so the protected path
+# needs its own Ingress object.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: n8n-protected-ingress
+  namespace: google-rag
+  labels:
+    app.kubernetes.io/part-of: n8n-rag-platform
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+
+    # ---- External auth: every /n8n/ request is checked with oauth2-proxy ----
+    nginx.ingress.kubernetes.io/auth-url: "https://rawhideron.duckdns.org/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://rawhideron.duckdns.org/oauth2/start?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups,Authorization"
+
+    # Preserve the original host/protocol so n8n generates correct URLs
+    nginx.ingress.kubernetes.io/proxy-set-headers: "google-rag/n8n-proxy-headers"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+
+    # WebSocket support (n8n push notifications)
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+      proxy_set_header X-Forwarded-Proto https;
+      proxy_set_header X-Forwarded-Host rawhideron.duckdns.org;
+
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - rawhideron.duckdns.org
+      secretName: n8n-rag-tls
+
+  rules:
+    - host: rawhideron.duckdns.org
+      http:
+        paths:
+          - path: /n8n
+            pathType: Prefix
+            backend:
+              service:
+                name: n8n
+                port:
+                  number: 5678
+
+---
+# ConfigMap supplying custom proxy headers for the n8n Ingress.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: n8n-proxy-headers
+  namespace: google-rag
+data:
+  X-Forwarded-Proto: "https"
+  X-Forwarded-Host: "rawhideron.duckdns.org"

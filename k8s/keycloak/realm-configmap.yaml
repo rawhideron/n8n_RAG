@@ -1,0 +1,127 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm
+  namespace: google-rag
+  labels:
+    app: keycloak
+data:
+  n8n-rag-realm.json: |
+    {
+      "realm": "n8n-rag",
+      "enabled": true,
+      "displayName": "N8N RAG Platform",
+      "displayNameHtml": "<strong>N8N RAG Platform</strong>",
+
+      "registrationAllowed": true,
+      "registrationEmailAsUsername": true,
+      "editUsernameAllowed": false,
+      "resetPasswordAllowed": true,
+      "rememberMe": true,
+      "verifyEmail": false,
+      "loginWithEmailAllowed": true,
+      "duplicateEmailsAllowed": false,
+      "bruteForceProtected": true,
+      "permanentLockout": false,
+      "maxFailureWaitSeconds": 900,
+      "failureFactor": 10,
+
+      "accessTokenLifespan": 300,
+      "ssoSessionIdleTimeout": 1800,
+      "ssoSessionMaxLifespan": 36000,
+
+      "clients": [
+        {
+          "clientId": "n8n-oauth2-proxy",
+          "name": "N8N OAuth2 Proxy",
+          "description": "OIDC client for oauth2-proxy protecting n8n",
+          "enabled": true,
+          "protocol": "openid-connect",
+          "publicClient": false,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "CHANGE_ME_OAUTH2_PROXY_SECRET",
+          "redirectUris": [
+            "https://rawhideron.duckdns.org/oauth2/callback"
+          ],
+          "webOrigins": [
+            "https://rawhideron.duckdns.org"
+          ],
+          "standardFlowEnabled": true,
+          "implicitFlowEnabled": false,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": false,
+          "defaultClientScopes": [
+            "openid",
+            "profile",
+            "email",
+            "roles"
+          ],
+          "optionalClientScopes": [
+            "address",
+            "phone",
+            "offline_access"
+          ],
+          "protocolMappers": [
+            {
+              "name": "groups",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-group-membership-mapper",
+              "consentRequired": false,
+              "config": {
+                "full.path": "false",
+                "id.token.claim": "true",
+                "access.token.claim": "true",
+                "claim.name": "groups",
+                "userinfo.token.claim": "true"
+              }
+            },
+            {
+              "name": "realm roles",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usermodel-realm-role-mapper",
+              "consentRequired": false,
+              "config": {
+                "multivalued": "true",
+                "claim.name": "roles",
+                "id.token.claim": "true",
+                "access.token.claim": "true",
+                "userinfo.token.claim": "true"
+              }
+            }
+          ]
+        }
+      ],
+
+      "roles": {
+        "realm": [
+          {
+            "name": "n8n-viewer",
+            "description": "Can log into N8N and view shared workflows"
+          },
+          {
+            "name": "n8n-executor",
+            "description": "Authorized to execute N8N workflows (also requires N8N admin grant)"
+          }
+        ]
+      },
+
+      "groups": [
+        {
+          "name": "n8n-executors",
+          "realmRoles": ["n8n-executor", "n8n-viewer"]
+        },
+        {
+          "name": "n8n-viewers",
+          "realmRoles": ["n8n-viewer"]
+        }
+      ],
+
+      "defaultRoles": ["n8n-viewer"],
+
+      "requiredActions": [],
+
+      "browserSecurityHeaders": {
+        "contentSecurityPolicy": "frame-src 'self' https://rawhideron.duckdns.org; frame-ancestors 'self'; object-src 'none';",
+        "xFrameOptions": "SAMEORIGIN"
+      }
+    }

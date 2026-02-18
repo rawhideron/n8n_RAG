@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oauth2-proxy-config
+  namespace: google-rag
+  labels:
+    app: oauth2-proxy
+data:
+  oauth2-proxy.cfg: |
+    # ============================================================
+    # oauth2-proxy — Authentication gateway for n8n
+    # Configured as an auth-check service (nginx external auth).
+    # Nginx routes /n8n/ directly to n8n but checks every request
+    # against oauth2-proxy's /oauth2/auth endpoint first.
+    # ============================================================
+
+    # HTTP listener
+    http_address = "0.0.0.0:4180"
+
+    # Keycloak OIDC provider
+    provider = "keycloak-oidc"
+
+    # IMPORTANT: Must match the client configured in Keycloak realm.
+    # Update client_id / client_secret in .env.secrets and realm-configmap.yaml.
+    client_id = "n8n-oauth2-proxy"
+    oidc_issuer_url = "https://rawhideron.duckdns.org/auth/realms/n8n-rag"
+    redirect_url = "https://rawhideron.duckdns.org/oauth2/callback"
+
+    # Static upstream — oauth2-proxy acts as auth-check, not a proxy.
+    # Nginx forwards authenticated traffic directly to n8n.
+    upstreams = ["static://202"]
+
+    # Cookie settings
+    cookie_name    = "_oauth2_proxy_n8n"
+    cookie_secure  = true
+    cookie_domains = [".rawhideron.duckdns.org"]
+    cookie_expire  = "12h"
+    cookie_refresh = "1h"
+
+    # Allow any email domain (registration is controlled by Keycloak)
+    email_domains = ["*"]
+
+    # Pass authenticated user info in response headers
+    # nginx-ingress forwards these to n8n
+    pass_user_headers    = true
+    set_xauthrequest     = true
+    pass_access_token    = false
+
+    # Don't show the oauth2-proxy login page — go straight to Keycloak
+    skip_provider_button = true
+
+    # Bypass auth for public assets (Keycloak and oauth2-proxy itself)
+    skip_auth_routes = [
+      "^/auth/.*",
+      "^/oauth2/.*"
+    ]
+
+    # Logging
+    silence_ping_logging = true

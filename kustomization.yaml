@@ -1,0 +1,91 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# All namespaced resources go into google-rag.
+# (ClusterIssuer is cluster-scoped and ignores this setting.)
+namespace: google-rag
+
+# ============================================================
+# Resource manifests
+# ============================================================
+resources:
+  - k8s/namespace.yaml
+
+  # cert-manager (cluster-scoped — namespace field has no effect)
+  - k8s/cert-manager/cluster-issuer.yaml
+
+  # PostgreSQL
+  - k8s/postgres/pvc.yaml
+  - k8s/postgres/deployment.yaml
+  - k8s/postgres/service.yaml
+  - k8s/postgres/init-job.yaml
+
+  # n8n
+  - k8s/n8n/pvc.yaml
+  - k8s/n8n/configmap.yaml
+  - k8s/n8n/deployment.yaml
+  - k8s/n8n/service.yaml
+  - k8s/n8n/import-job.yaml
+
+  # Qdrant
+  - k8s/qdrant/pvc.yaml
+  - k8s/qdrant/deployment.yaml
+  - k8s/qdrant/service.yaml
+
+  # Ollama (CPU)
+  - k8s/ollama/pvc.yaml
+  - k8s/ollama/deployment.yaml
+  - k8s/ollama/service.yaml
+  - k8s/ollama/model-init-job.yaml
+
+  # Keycloak
+  - k8s/keycloak/realm-configmap.yaml
+  - k8s/keycloak/deployment.yaml
+  - k8s/keycloak/service.yaml
+
+  # oauth2-proxy
+  - k8s/oauth2-proxy/configmap.yaml
+  - k8s/oauth2-proxy/deployment.yaml
+  - k8s/oauth2-proxy/service.yaml
+
+  # Ingress (TLS + external auth)
+  - k8s/ingress/ingress.yaml
+
+# ============================================================
+# Secrets — loaded from .env.secrets at the project root.
+# NEVER commit .env.secrets — it is in .gitignore.
+# Copy .env.secrets.example → .env.secrets and fill in values.
+# ============================================================
+secretGenerator:
+  - name: n8n-rag-secrets
+    namespace: google-rag
+    envs:
+      - .env.secrets
+
+# ============================================================
+# ConfigMaps — generated from demo-data JSON files.
+# Paths are relative to this kustomization.yaml (project root).
+# ============================================================
+configMapGenerator:
+  - name: n8n-workflows
+    namespace: google-rag
+    files:
+      - n8n/demo-data/workflows/srOnR8PAY3u4RSwb.json
+      - n8n/demo-data/workflows/chat_with_memory.json
+      - n8n/demo-data/workflows/chat_with_memory_simple.json
+      - n8n/demo-data/workflows/local_RAG_ai_agents.json
+
+  - name: n8n-credentials
+    namespace: google-rag
+    files:
+      - n8n/demo-data/credentials/xHuYe0MDGOs9IpBW.json
+      - n8n/demo-data/credentials/sFfERYppMeBnFNeA.json
+      - n8n/demo-data/credentials/pt3AMvGiVq3g93Ri.json
+
+# Stable names — no content-hash suffix appended.
+# Allows Deployments/Jobs to reference ConfigMaps/Secrets by fixed name.
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    app.kubernetes.io/part-of: n8n-rag-platform
+    app.kubernetes.io/managed-by: kustomize

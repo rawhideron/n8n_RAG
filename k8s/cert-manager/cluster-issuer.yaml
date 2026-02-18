@@ -1,0 +1,19 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  # ClusterIssuer is cluster-scoped — namespace field is ignored.
+  # Apply cert-manager before deploying: https://cert-manager.io/docs/installation/
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    # IMPORTANT: Replace with your real email address (used for expiry notices)
+    email: your-email@example.com
+    privateKeySecretRef:
+      name: letsencrypt-prod-private-key
+    solvers:
+      # HTTP-01 challenge via nginx ingress
+      # Requires port 80 to be reachable from the internet.
+      - http01:
+          ingress:
+            ingressClassName: nginx

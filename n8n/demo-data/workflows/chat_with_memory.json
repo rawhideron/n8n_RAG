@@ -1,0 +1,219 @@
+{
+  "createdAt": "2024-02-23T16:58:31.616Z",
+  "updatedAt": "2024-02-23T16:58:31.616Z",
+  "id": "chat-with-memory",
+  "name": "Chat with PostgreSQL Memory",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "chat-trigger",
+      "name": "Chat Trigger",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "webhookId": "chat-memory-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM get_chat_history($1, 5) ORDER BY message_timestamp ASC",
+        "options": {
+          "queryReplacement": "session_id"
+        }
+      },
+      "id": "get-chat-history",
+      "name": "Get Chat History",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [400, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credentials",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine chat history with current message\nconst sessionId = $input.first().json.session_id || 'default';\nconst currentMessage = $input.first().json.message;\n\n// Get chat history from previous node\nconst chatHistory = $('Get Chat History').first().json;\n\n// Build conversation context\nlet conversationContext = '';\nif (chatHistory && chatHistory.length > 0) {\n  conversationContext = 'Previous conversation:\\n';\n  chatHistory.forEach(msg => {\n    conversationContext += `${msg.message_type}: ${msg.message_content}\\n`;\n  });\n  conversationContext += '\\nCurrent conversation:\\n';\n}\n\nconversationContext += `User: ${currentMessage}`;\n\nreturn [{\n  json: {\n    session_id: sessionId,\n    current_message: currentMessage,\n    conversation_context: conversationContext,\n    chat_history: chatHistory || []\n  }\n}];"
+      },
+      "id": "build-context",
+      "name": "Build Conversation Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:latest",
+        "options": {}
+      },
+      "id": "ollama-model",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [800, 300],
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "chat_memory",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "={{ $json.session_id }}",
+            "user_id": "={{ $json.user_id || 'default' }}",
+            "message_type": "user",
+            "message_content": "={{ $json.current_message }}",
+            "metadata": "={{ JSON.stringify({ workflow_id: $workflow.id, node_id: $node.id }) }}"
+          }
+        }
+      },
+      "id": "save-user-message",
+      "name": "Save User Message",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1000, 200],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credentials",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "chat_memory",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "={{ $('Build Conversation Context').first().json.session_id }}",
+            "user_id": "={{ $('Build Conversation Context').first().json.user_id || 'default' }}",
+            "message_type": "assistant",
+            "message_content": "={{ $json.text }}",
+            "metadata": "={{ JSON.stringify({ workflow_id: $workflow.id, node_id: $node.id }) }}"
+          }
+        }
+      },
+      "id": "save-assistant-response",
+      "name": "Save Assistant Response",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1000, 400],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credentials",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM chat_memory WHERE session_id = $1 ORDER BY timestamp DESC LIMIT 10",
+        "options": {
+          "queryReplacement": "session_id"
+        }
+      },
+      "id": "get-full-history",
+      "name": "Get Full History",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1200, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credentials",
+          "name": "PostgreSQL"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Chat History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Chat History": {
+      "main": [
+        [
+          {
+            "node": "Build Conversation Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Conversation Context": {
+      "main": [
+        [
+          {
+            "node": "Ollama Chat Model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "main": [
+        [
+          {
+            "node": "Save Assistant Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save User Message": {
+      "main": [
+        [
+          {
+            "node": "Get Full History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Assistant Response": {
+      "main": [
+        [
+          {
+            "node": "Get Full History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "chat-memory-v1",
+  "triggerCount": 0
+} 

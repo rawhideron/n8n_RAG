@@ -1,0 +1,139 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: google-rag
+  labels:
+    app: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      initContainers:
+        # Wait for the 'keycloak' PostgreSQL database to exist (created by postgres-init Job)
+        - name: wait-for-keycloak-db
+          image: postgres:16-alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until psql -h postgres -U "$POSTGRES_USER" -d keycloak -c "\q" 2>/dev/null; do
+                echo "Waiting for 'keycloak' database..."; sleep 5
+              done
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-rag-secrets
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-rag-secrets
+                  key: POSTGRES_PASSWORD
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:latest
+          args:
+            - start
+            - --import-realm
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            # Database
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL
+              value: "jdbc:postgresql://postgres:5432/keycloak"
+            - name: KC_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-rag-secrets
+                  key: POSTGRES_USER
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-rag-secrets
+                  key: POSTGRES_PASSWORD
+
+            # Keycloak admin
+            - name: KEYCLOAK_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-rag-secrets
+                  key: KEYCLOAK_ADMIN
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-rag-secrets
+                  key: KEYCLOAK_ADMIN_PASSWORD
+
+            # Networking — Keycloak runs at /auth/ behind nginx ingress
+            - name: KC_HTTP_RELATIVE_PATH
+              value: /auth
+            - name: KC_HOSTNAME
+              value: rawhideron.duckdns.org
+            - name: KC_HOSTNAME_PATH
+              value: /auth
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+            - name: KC_HOSTNAME_STRICT_HTTPS
+              value: "false"
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_PROXY
+              value: edge   # Trust X-Forwarded-* headers from nginx
+
+            # Logging
+            - name: KC_LOG_LEVEL
+              value: INFO
+
+          volumeMounts:
+            - name: realm-config
+              mountPath: /opt/keycloak/data/import
+
+          startupProbe:
+            httpGet:
+              path: /auth/health/ready
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 30   # Allow up to 5 min for first-time setup
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /auth/health/live
+              port: 8080
+            initialDelaySeconds: 0
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /auth/health/ready
+              port: 8080
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 250m
+            limits:
+              memory: 1Gi
+              cpu: "1"
+
+      volumes:
+        - name: realm-config
+          configMap:
+            name: keycloak-realm

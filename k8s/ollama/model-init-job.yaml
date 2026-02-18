@@ -1,0 +1,63 @@
+---
+# One-time Job: pulls required Ollama models.
+# Models: llama3.2 (chat) and nomic-embed-text (RAG embeddings).
+# This Job must complete before n8n workflows using Ollama will succeed.
+# WARNING: Downloading ~2.5 GB of models — ensure your cluster has
+#          sufficient storage and the Ollama pod is Running first.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ollama-model-init
+  namespace: google-rag
+  labels:
+    app: ollama-model-init
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: ollama-model-init
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-ollama
+          image: curlimages/curl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until curl -sf http://ollama:11434/api/tags; do
+                echo "Waiting for Ollama service..."; sleep 5
+              done
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 10m
+            limits:
+              memory: 64Mi
+              cpu: 50m
+      containers:
+        - name: pull-models
+          image: curlimages/curl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Pulling llama3.2..."
+              curl -sf -X POST http://ollama:11434/api/pull \
+                -H 'Content-Type: application/json' \
+                -d '{"name":"llama3.2:latest"}' | tail -1
+              echo "Pulling nomic-embed-text..."
+              curl -sf -X POST http://ollama:11434/api/pull \
+                -H 'Content-Type: application/json' \
+                -d '{"name":"nomic-embed-text:latest"}' | tail -1
+              echo "Models ready."
+          # Pulling models can take a long time on slow connections
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 10m
+            limits:
+              memory: 64Mi
+              cpu: 100m
