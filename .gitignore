@@ -1,2 +1,5 @@
 .env
 .env.secrets
+.env.example
+.env.secrets.example
+
