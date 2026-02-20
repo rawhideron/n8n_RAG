@@ -3,10 +3,12 @@
 # NGINX Ingress for n8n RAG Platform
 #
 # Traffic flow:
-#   Browser ──HTTPS──► nginx ingress
-#     /auth/*     ──► Keycloak         (no auth gate)
-#     /oauth2/*   ──► oauth2-proxy     (no auth gate — this IS the auth)
+#   Browser ──HTTPS──► nginx ingress (rawhideron.duckdns.org)
+#     /oauth2/*   ──► oauth2-proxy     (login flow — no auth gate)
 #     /n8n/*      ──► n8n              (protected: auth-url check via oauth2-proxy)
+#
+# Keycloak lives at goodmanreunion.duckdns.org/keycloak (separate namespace).
+# oauth2-proxy redirects unauthenticated users there automatically.
 #
 # TLS certificate auto-provisioned by cert-manager / Let's Encrypt.
 # ============================================================
@@ -37,6 +39,9 @@ metadata:
     nginx.ingress.kubernetes.io/use-forwarded-headers: "true"
     nginx.ingress.kubernetes.io/compute-full-forwarded-for: "true"
 
+    # oauth2-proxy session cookie is large — increase header buffer to avoid 502
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+
 spec:
   ingressClassName: nginx
   tls:
@@ -49,15 +54,6 @@ spec:
       http:
         paths:
 
-          # ---- Keycloak (auth provider — must be first, no auth gate) ----
-          - path: /auth
-            pathType: Prefix
-            backend:
-              service:
-                name: keycloak
-                port:
-                  number: 8080
-
           # ---- oauth2-proxy endpoints (login flow, callback, auth check) ----
           - path: /oauth2
             pathType: Prefix
@@ -67,19 +63,11 @@ spec:
                 port:
                   number: 4180
 
-          # ---- n8n UI (protected by oauth2-proxy external auth) ----
-          - path: /n8n
-            pathType: Prefix
-            backend:
-              service:
-                name: n8n
-                port:
-                  number: 5678
-
 ---
-# Separate Ingress for /n8n/ with external auth annotations.
-# NGINX processes annotations per-Ingress, so the protected path
-# needs its own Ingress object.
+# Ingress for /n8n/ — routes directly to n8n with no external auth gate.
+# n8n handles its own authentication (owner login form).
+# No rewrite — n8n natively serves its editor at /n8n/ and REST API at /n8n/rest/.
+# Static assets (/n8n/static/, /n8n/assets/) are handled by n8n-assets-ingress below.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -92,24 +80,12 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 
-    # ---- External auth: every /n8n/ request is checked with oauth2-proxy ----
-    nginx.ingress.kubernetes.io/auth-url: "https://rawhideron.duckdns.org/oauth2/auth"
-    nginx.ingress.kubernetes.io/auth-signin: "https://rawhideron.duckdns.org/oauth2/start?rd=$escaped_request_uri"
-    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups,Authorization"
-
-    # Preserve the original host/protocol so n8n generates correct URLs
-    nginx.ingress.kubernetes.io/proxy-set-headers: "google-rag/n8n-proxy-headers"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "1800"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
     nginx.ingress.kubernetes.io/proxy-body-size: "100m"
 
     # WebSocket support (n8n push notifications)
     nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header Upgrade $http_upgrade;
-      proxy_set_header Connection "upgrade";
-      proxy_set_header X-Forwarded-Proto https;
-      proxy_set_header X-Forwarded-Host rawhideron.duckdns.org;
 
 spec:
   ingressClassName: nginx
@@ -124,6 +100,129 @@ spec:
         paths:
           - path: /n8n
             pathType: Prefix
+            backend:
+              service:
+                name: n8n
+                port:
+                  number: 5678
+
+---
+# Static asset ingress — no auth, strips /n8n prefix.
+# n8n serves its JS/CSS bundles at /static/ and /assets/ (without the /n8n/ prefix),
+# so /n8n/static/... and /n8n/assets/... must be rewritten before reaching n8n.
+# Regex paths take priority over the /n8n Prefix path above, so asset requests
+# are correctly routed here instead of n8n-protected-ingress.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: n8n-assets-ingress
+  namespace: google-rag
+  labels:
+    app.kubernetes.io/part-of: n8n-rag-platform
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: "/$1$2"
+
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - rawhideron.duckdns.org
+      secretName: n8n-rag-tls
+
+  rules:
+    - host: rawhideron.duckdns.org
+      http:
+        paths:
+          - path: /n8n/(static|assets|icons|fonts|types)(/.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: n8n
+                port:
+                  number: 5678
+
+---
+# REST API ingress — rewrites /n8n/rest/(.*)  →  /rest/$1  so the SPA (at /n8n/)
+# can reach n8n's REST API, which is always mounted at the root /rest/... path.
+# This is required both in setup mode (where the /n8n/* catch-all intercepts everything)
+# and in normal operation. Regex paths take priority over the /n8n Prefix rule above.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: n8n-rest-ingress
+  namespace: google-rag
+  labels:
+    app.kubernetes.io/part-of: n8n-rag-platform
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: "/rest/$1"
+
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+
+    # WebSocket support (push/SSE connections go through /n8n/rest/push)
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - rawhideron.duckdns.org
+      secretName: n8n-rag-tls
+
+  rules:
+    - host: rawhideron.duckdns.org
+      http:
+        paths:
+          - path: /n8n/rest/(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: n8n
+                port:
+                  number: 5678
+
+---
+# Root-path ingress — rewrites /n8n/rest/types/* → /types/*
+# n8n's type definition files (credentials.json, nodes.json, node-versions.json) are served
+# at the Express root /types/ path, NOT under /rest/. The n8n-rest-ingress would incorrectly
+# send these to /rest/types/... (404). This more-specific regex takes priority over
+# n8n-rest-ingress because nginx ingress sorts regex locations by specificity (longer first).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: n8n-root-paths-ingress
+  namespace: google-rag
+  labels:
+    app.kubernetes.io/part-of: n8n-rag-platform
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: "/$1"
+
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - rawhideron.duckdns.org
+      secretName: n8n-rag-tls
+
+  rules:
+    - host: rawhideron.duckdns.org
+      http:
+        paths:
+          - path: /n8n/rest/(types/.*)
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: n8n

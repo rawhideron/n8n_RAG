@@ -11,14 +11,14 @@ namespace: google-rag
 resources:
   - k8s/namespace.yaml
 
-  # cert-manager (cluster-scoped — namespace field has no effect)
-  - k8s/cert-manager/cluster-issuer.yaml
+  # NOTE: ClusterIssuer is NOT managed here — apply once manually:
+  #   kubectl apply -f k8s/cert-manager/cluster-issuer.yaml
+  # Keeping it in kustomize risks overwriting it on every re-deploy.
 
-  # PostgreSQL
+  # PostgreSQL (n8n DB only — Keycloak uses keycloak-postgresql in its own namespace)
   - k8s/postgres/pvc.yaml
   - k8s/postgres/deployment.yaml
   - k8s/postgres/service.yaml
-  - k8s/postgres/init-job.yaml
 
   # n8n
   - k8s/n8n/pvc.yaml
@@ -38,10 +38,11 @@ resources:
   - k8s/ollama/service.yaml
   - k8s/ollama/model-init-job.yaml
 
-  # Keycloak
-  - k8s/keycloak/realm-configmap.yaml
-  - k8s/keycloak/deployment.yaml
-  - k8s/keycloak/service.yaml
+  # NOTE: Keycloak is NOT deployed here.
+  # Uses existing Keycloak at goodmanreunion.duckdns.org/keycloak (keycloak namespace).
+  # Import the n8n-rag realm once with:
+  #   kubectl apply -f k8s/keycloak/realm-import-job.yaml
+  #   kubectl wait --for=condition=complete job/n8n-rag-realm-import -n keycloak --timeout=120s
 
   # oauth2-proxy
   - k8s/oauth2-proxy/configmap.yaml

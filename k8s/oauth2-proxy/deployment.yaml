@@ -22,11 +22,14 @@ spec:
             - /bin/sh
             - -c
             - |
-              until curl -sf https://rawhideron.duckdns.org/auth/health/ready 2>/dev/null; do
-                # Also try the internal service directly during bootstrap
-                curl -sf http://keycloak:8080/auth/health/ready && break
-                echo "Waiting for Keycloak..."; sleep 5
+              # Keycloak is in the keycloak namespace at goodmanreunion.duckdns.org/keycloak
+              # Poll the n8n-rag realm OIDC discovery endpoint until it responds
+              until curl -sf \
+                https://goodmanreunion.duckdns.org/keycloak/realms/n8n-rag/.well-known/openid-configuration \
+                > /dev/null; do
+                echo "Waiting for Keycloak n8n-rag realm..."; sleep 10
               done
+              echo "Keycloak n8n-rag realm is ready."
           resources:
             requests:
               memory: 16Mi

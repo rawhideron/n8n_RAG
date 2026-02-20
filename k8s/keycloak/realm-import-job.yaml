@@ -1,0 +1,233 @@
+---
+# ============================================================
+# n8n-rag Realm Import — applies to the EXISTING Keycloak
+# ============================================================
+# Apply this ONCE against the keycloak namespace (not via kustomize):
+#
+#   kubectl apply -f k8s/keycloak/realm-import-job.yaml
+#   kubectl wait --for=condition=complete job/n8n-rag-realm-import \
+#     -n keycloak --timeout=120s
+#
+# The Job is idempotent: if the realm already exists it skips the import.
+# ============================================================
+
+---
+# ConfigMap holds the realm definition.
+# It is scoped to the keycloak namespace.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: n8n-rag-realm
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/part-of: n8n-rag-platform
+data:
+  realm.json: |
+    {
+      "realm": "n8n-rag",
+      "enabled": true,
+      "displayName": "N8N RAG Platform",
+      "displayNameHtml": "<strong>N8N RAG Platform</strong>",
+
+      "registrationAllowed": true,
+      "registrationEmailAsUsername": true,
+      "editUsernameAllowed": false,
+      "resetPasswordAllowed": true,
+      "rememberMe": true,
+      "verifyEmail": false,
+      "loginWithEmailAllowed": true,
+      "duplicateEmailsAllowed": false,
+      "bruteForceProtected": true,
+      "permanentLockout": false,
+      "maxFailureWaitSeconds": 900,
+      "failureFactor": 10,
+
+      "accessTokenLifespan": 300,
+      "ssoSessionIdleTimeout": 1800,
+      "ssoSessionMaxLifespan": 36000,
+
+      "clients": [
+        {
+          "clientId": "n8n-oauth2-proxy",
+          "name": "N8N OAuth2 Proxy",
+          "description": "OIDC client for oauth2-proxy protecting n8n at rawhideron.duckdns.org",
+          "enabled": true,
+          "protocol": "openid-connect",
+          "publicClient": false,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "CHANGE_ME_OAUTH2_PROXY_SECRET",
+          "redirectUris": [
+            "https://rawhideron.duckdns.org/oauth2/callback"
+          ],
+          "webOrigins": [
+            "https://rawhideron.duckdns.org"
+          ],
+          "standardFlowEnabled": true,
+          "implicitFlowEnabled": false,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": false,
+          "defaultClientScopes": [
+            "openid",
+            "profile",
+            "email",
+            "roles"
+          ],
+          "optionalClientScopes": [
+            "address",
+            "phone",
+            "offline_access"
+          ],
+          "protocolMappers": [
+            {
+              "name": "groups",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-group-membership-mapper",
+              "consentRequired": false,
+              "config": {
+                "full.path": "false",
+                "id.token.claim": "true",
+                "access.token.claim": "true",
+                "claim.name": "groups",
+                "userinfo.token.claim": "true"
+              }
+            },
+            {
+              "name": "realm roles",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usermodel-realm-role-mapper",
+              "consentRequired": false,
+              "config": {
+                "multivalued": "true",
+                "claim.name": "roles",
+                "id.token.claim": "true",
+                "access.token.claim": "true",
+                "userinfo.token.claim": "true"
+              }
+            }
+          ]
+        }
+      ],
+
+      "roles": {
+        "realm": [
+          {
+            "name": "n8n-viewer",
+            "description": "Can log into N8N and view shared workflows"
+          },
+          {
+            "name": "n8n-executor",
+            "description": "Authorized to execute N8N workflows (also requires N8N admin grant)"
+          }
+        ]
+      },
+
+      "groups": [
+        {
+          "name": "n8n-executors",
+          "realmRoles": ["n8n-executor", "n8n-viewer"]
+        },
+        {
+          "name": "n8n-viewers",
+          "realmRoles": ["n8n-viewer"]
+        }
+      ],
+
+      "defaultRoles": ["n8n-viewer"],
+
+      "requiredActions": [],
+
+      "browserSecurityHeaders": {
+        "contentSecurityPolicy": "frame-src 'self' https://rawhideron.duckdns.org; frame-ancestors 'self'; object-src 'none';",
+        "xFrameOptions": "SAMEORIGIN"
+      }
+    }
+
+---
+# Job: imports the n8n-rag realm into the existing Keycloak via REST API.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: n8n-rag-realm-import
+  namespace: keycloak
+  labels:
+    app.kubernetes.io/part-of: n8n-rag-platform
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: realm-import
+          image: curlimages/curl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              BASE="http://keycloak.keycloak.svc.cluster.local/keycloak"
+
+              echo "--- Obtaining admin token from master realm ---"
+              TOKEN=$(curl -sf -X POST \
+                "${BASE}/realms/master/protocol/openid-connect/token" \
+                --data-urlencode "client_id=admin-cli" \
+                --data-urlencode "grant_type=password" \
+                --data-urlencode "username=${KC_ADMIN}" \
+                --data-urlencode "password=${KC_ADMIN_PW}" \
+                | sed 's/.*"access_token":"\([^"]*\)".*/\1/')
+
+              if [ -z "$TOKEN" ]; then
+                echo "ERROR: failed to obtain admin token" >&2
+                exit 1
+              fi
+              echo "Token obtained."
+
+              echo "--- Checking if n8n-rag realm already exists ---"
+              HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                -H "Authorization: Bearer ${TOKEN}" \
+                "${BASE}/admin/realms/n8n-rag")
+
+              if [ "$HTTP_STATUS" = "200" ]; then
+                echo "Realm 'n8n-rag' already exists — skipping import."
+                exit 0
+              fi
+
+              echo "--- Importing n8n-rag realm ---"
+              curl -sf -X POST \
+                -H "Authorization: Bearer ${TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d @/realm/realm.json \
+                "${BASE}/admin/realms"
+
+              echo "Realm 'n8n-rag' imported successfully."
+              echo ""
+              echo "IMPORTANT: Update the client secret before deploying n8n-rag platform."
+              echo "  1. Go to: https://goodmanreunion.duckdns.org/keycloak/admin"
+              echo "  2. Select realm: n8n-rag"
+              echo "  3. Clients → n8n-oauth2-proxy → Credentials → Regenerate Secret"
+              echo "  4. Copy the secret into OAUTH2_PROXY_CLIENT_SECRET in .env.secrets"
+          env:
+            - name: KC_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-admin-credentials
+                  key: KC_BOOTSTRAP_ADMIN_USERNAME
+            - name: KC_ADMIN_PW
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-admin-credentials
+                  key: adminPassword
+          volumeMounts:
+            - name: realm-json
+              mountPath: /realm
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 50m
+            limits:
+              memory: 64Mi
+              cpu: 100m
+      volumes:
+        - name: realm-json
+          configMap:
+            name: n8n-rag-realm

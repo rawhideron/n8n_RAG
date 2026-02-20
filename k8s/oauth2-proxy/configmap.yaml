@@ -21,9 +21,10 @@ data:
     provider = "keycloak-oidc"
 
     # IMPORTANT: Must match the client configured in Keycloak realm.
-    # Update client_id / client_secret in .env.secrets and realm-configmap.yaml.
+    # Keycloak lives at goodmanreunion.duckdns.org/keycloak (separate cluster deployment).
+    # The n8n-rag realm is imported there via k8s/keycloak/realm-import-job.yaml.
     client_id = "n8n-oauth2-proxy"
-    oidc_issuer_url = "https://rawhideron.duckdns.org/auth/realms/n8n-rag"
+    oidc_issuer_url = "https://goodmanreunion.duckdns.org/keycloak/realms/n8n-rag"
     redirect_url = "https://rawhideron.duckdns.org/oauth2/callback"
 
     # Static upstream — oauth2-proxy acts as auth-check, not a proxy.
@@ -33,12 +34,16 @@ data:
     # Cookie settings
     cookie_name    = "_oauth2_proxy_n8n"
     cookie_secure  = true
-    cookie_domains = [".rawhideron.duckdns.org"]
+    cookie_domains = ["rawhideron.duckdns.org"]
     cookie_expire  = "12h"
     cookie_refresh = "1h"
 
     # Allow any email domain (registration is controlled by Keycloak)
     email_domains = ["*"]
+
+    # Don't reject users whose Keycloak email isn't marked verified.
+    # Email verification is managed in Keycloak — trusting its authentication is sufficient.
+    insecure_oidc_allow_unverified_email = true
 
     # Pass authenticated user info in response headers
     # nginx-ingress forwards these to n8n
@@ -48,12 +53,6 @@ data:
 
     # Don't show the oauth2-proxy login page — go straight to Keycloak
     skip_provider_button = true
-
-    # Bypass auth for public assets (Keycloak and oauth2-proxy itself)
-    skip_auth_routes = [
-      "^/auth/.*",
-      "^/oauth2/.*"
-    ]
 
     # Logging
     silence_ping_logging = true
