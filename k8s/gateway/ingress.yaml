@@ -1,18 +1,14 @@
 # ============================================================
 # Gateway ingress — applied to .230's cluster.
 #
-# Routes rawhideron.duckdns.org traffic to the n8n-rag kind
-# cluster on 192.168.1.176.
-#
-# HTTPS: SSL passthrough (L4 TCP) — TLS is NOT terminated here.
-#        cert-manager on .176 owns the certificate.
-#
-# HTTP:  Plain proxy — forwards to .176 so Let's Encrypt ACME
-#        HTTP-01 challenges can reach cert-manager on .176.
+# TLS terminates HERE at .230's nginx ingress.
+# cert-manager on .230 issues the cert via reunion-letsencrypt.
+# .230 proxies plain HTTP to 192.168.1.176:80 (nginx stream
+# proxy on .176, which forwards to the kind cluster NodePort).
 # ============================================================
 
 ---
-# HTTPS — SSL passthrough to .176:32512
+# HTTPS — TLS terminates at .230, proxies plain HTTP to .176
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -20,35 +16,25 @@ metadata:
   namespace: n8n-gateway
   annotations:
     kubernetes.io/ingress.class: "nginx"
-    # Forward raw TLS to backend — no certificate needed on .230 for this domain
-    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
-    nginx.ingress.kubernetes.io/ssl-passthrough-proxy-protocol: "false"
+    cert-manager.io/cluster-issuer: "reunion-letsencrypt"
+    # Do NOT use ssl-passthrough — TLS terminates here
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # Backend is plain HTTP on .176
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    # Pass real protocol to n8n so it knows it's behind HTTPS
+    nginx.ingress.kubernetes.io/proxy-set-header: "X-Forwarded-Proto https"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    # WebSocket support for n8n push notifications
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
 spec:
   ingressClassName: nginx
-  rules:
-    - host: rawhideron.duckdns.org
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: n8n-rag-backend-https
-                port:
-                  number: 443
-
----
-# HTTP — plain proxy to .176:30717 for ACME challenges
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: n8n-rag-gateway-http
-  namespace: n8n-gateway
-  annotations:
-    kubernetes.io/ingress.class: "nginx"
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-spec:
-  ingressClassName: nginx
+  tls:
+    - hosts:
+        - rawhideron.duckdns.org
+      secretName: rawhideron-tls
   rules:
     - host: rawhideron.duckdns.org
       http:
