@@ -9,7 +9,8 @@
 # ============================================================
 
 ---
-# HTTPS backend — used for SSL passthrough (port 32512 = nginx ingress NodePort)
+# HTTPS backend — points to nginx stream proxy on .176 host (port 443)
+# nginx on .176 forwards to the kind NodePort 32512 internally
 apiVersion: v1
 kind: Service
 metadata:
@@ -19,7 +20,7 @@ spec:
   ports:
     - name: https
       port: 443
-      targetPort: 32512
+      targetPort: 443
       protocol: TCP
 
 ---
@@ -33,12 +34,12 @@ subsets:
       - ip: 192.168.1.176
     ports:
       - name: https
-        port: 32512
+        port: 443
         protocol: TCP
 
 ---
-# HTTP backend — used for Let's Encrypt ACME HTTP-01 challenges
-# (port 30717 = nginx ingress NodePort for HTTP)
+# HTTP backend — points to nginx stream proxy on .176 host (port 80)
+# nginx on .176 forwards to the kind NodePort 30717 internally
 apiVersion: v1
 kind: Service
 metadata:
@@ -48,7 +49,7 @@ spec:
   ports:
     - name: http
       port: 80
-      targetPort: 30717
+      targetPort: 80
       protocol: TCP
 
 ---
@@ -62,5 +63,5 @@ subsets:
       - ip: 192.168.1.176
     ports:
       - name: http
-        port: 30717
+        port: 80
         protocol: TCP
