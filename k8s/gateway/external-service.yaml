@@ -1,0 +1,66 @@
+# ============================================================
+# Manual Service + Endpoints pointing to the n8n-rag kind cluster
+# on 192.168.1.176.
+#
+# Applied to the .230 cluster — NOT the .176 cluster.
+#
+# nginx ingress on .230 uses these as the backend for
+# rawhideron.duckdns.org traffic.
+# ============================================================
+
+---
+# HTTPS backend — used for SSL passthrough (port 32512 = nginx ingress NodePort)
+apiVersion: v1
+kind: Service
+metadata:
+  name: n8n-rag-backend-https
+  namespace: n8n-gateway
+spec:
+  ports:
+    - name: https
+      port: 443
+      targetPort: 32512
+      protocol: TCP
+
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: n8n-rag-backend-https
+  namespace: n8n-gateway
+subsets:
+  - addresses:
+      - ip: 192.168.1.176
+    ports:
+      - name: https
+        port: 32512
+        protocol: TCP
+
+---
+# HTTP backend — used for Let's Encrypt ACME HTTP-01 challenges
+# (port 30717 = nginx ingress NodePort for HTTP)
+apiVersion: v1
+kind: Service
+metadata:
+  name: n8n-rag-backend-http
+  namespace: n8n-gateway
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 30717
+      protocol: TCP
+
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: n8n-rag-backend-http
+  namespace: n8n-gateway
+subsets:
+  - addresses:
+      - ip: 192.168.1.176
+    ports:
+      - name: http
+        port: 30717
+        protocol: TCP
