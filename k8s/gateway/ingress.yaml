@@ -29,6 +29,11 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-body-size: "100m"
     # WebSocket support for n8n push notifications
     nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    # oauth2-proxy session cookie is 3-6KB — increase header buffer so the
+    # .230 gateway can forward large Set-Cookie headers from the callback.
+    # proxy_buffering is off by default, so proxy_buffer_size is the ONLY
+    # buffer used for response headers. Default 4k causes 502 on callback.
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
 spec:
   ingressClassName: nginx
   tls:
