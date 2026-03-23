@@ -53,15 +53,23 @@ resources:
   - k8s/ingress/ingress.yaml
 
 # ============================================================
-# Secrets — loaded from .env.secrets at the project root.
-# NEVER commit .env.secrets — it is in .gitignore.
-# Copy .env.secrets.example → .env.secrets and fill in values.
+# Secrets — NOT managed by Kustomize/ArgoCD.
+# The `n8n-rag-secrets` Secret must be created in the cluster once,
+# before ArgoCD syncs. ArgoCD will not touch it (not in Git).
+#
+# Create it with:
+#   kubectl create secret generic n8n-rag-secrets \
+#     --namespace n8n-rag \
+#     --from-literal=POSTGRES_USER=<value> \
+#     --from-literal=POSTGRES_PASSWORD=<value> \
+#     --from-literal=POSTGRES_DB=n8n \
+#     --from-literal=N8N_ENCRYPTION_KEY=<value> \
+#     --from-literal=N8N_USER_MANAGEMENT_JWT_SECRET=<value> \
+#     --from-literal=OAUTH2_PROXY_CLIENT_SECRET=<value> \
+#     --from-literal=OAUTH2_PROXY_COOKIE_SECRET=<value>
+#
+# See .env.secrets.example for descriptions of each value.
 # ============================================================
-secretGenerator:
-  - name: n8n-rag-secrets
-    namespace: n8n-rag
-    envs:
-      - .env.secrets
 
 # ============================================================
 # ConfigMaps — generated from demo-data JSON files.
