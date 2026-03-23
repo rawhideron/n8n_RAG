@@ -34,7 +34,11 @@ data:
     # Cookie settings
     cookie_name    = "_oauth2_proxy_n8n"
     cookie_secure  = true
-    cookie_domains = ["rawhideron.duckdns.org"]
+    # cookie_domains omitted — nginx auth subrequest arrives with Host:
+    # oauth2-proxy.n8n-rag.svc.cluster.local (internal service URL), which
+    # would fail domain validation if cookie_domains were set to the external
+    # hostname. Without this setting, oauth2-proxy skips the domain check.
+    # The browser still scopes the cookie to rawhideron.duckdns.org automatically.
     cookie_expire  = "12h"
     cookie_refresh = "1h"
 
