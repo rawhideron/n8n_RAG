@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: n8n-rag
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/rawhideron/n8n_RAG.git
+    targetRevision: main
+    path: .
+    kustomize: {}
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: n8n-rag
+
+  syncPolicy:
+    automated:
+      # Automatically sync when Git changes are detected
+      prune: true    # Delete cluster resources that are removed from Git
+      selfHeal: true # Re-sync if someone manually changes something in the cluster
+    syncOptions:
+      # Create the namespace if it doesn't exist
+      - CreateNamespace=true
+      # Use server-side apply to handle large resources cleanly
+      - ServerSideApply=true

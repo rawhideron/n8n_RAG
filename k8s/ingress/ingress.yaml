@@ -16,7 +16,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: n8n-rag-ingress
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app.kubernetes.io/part-of: n8n-rag-platform
   annotations:
@@ -64,15 +64,15 @@ spec:
                   number: 4180
 
 ---
-# Ingress for /n8n/ — routes directly to n8n with no external auth gate.
-# n8n handles its own authentication (owner login form).
+# Ingress for /n8n/ — protected by oauth2-proxy (Keycloak authentication).
+# Unauthenticated users are redirected to Keycloak to log in.
 # No rewrite — n8n natively serves its editor at /n8n/ and REST API at /n8n/rest/.
 # Static assets (/n8n/static/, /n8n/assets/) are handled by n8n-assets-ingress below.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: n8n-protected-ingress
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app.kubernetes.io/part-of: n8n-rag-platform
   annotations:
@@ -86,6 +86,12 @@ metadata:
 
     # WebSocket support (n8n push notifications)
     nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+
+    # oauth2-proxy authentication gate — validates Keycloak session before
+    # forwarding to n8n. Unauthenticated requests are redirected to Keycloak.
+    nginx.ingress.kubernetes.io/auth-url: "https://rawhideron.duckdns.org/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://rawhideron.duckdns.org/oauth2/start?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email"
 
 spec:
   ingressClassName: nginx
@@ -116,7 +122,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: n8n-assets-ingress
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app.kubernetes.io/part-of: n8n-rag-platform
   annotations:
@@ -125,6 +131,9 @@ metadata:
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/rewrite-target: "/$1$2"
+    nginx.ingress.kubernetes.io/auth-url: "https://rawhideron.duckdns.org/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://rawhideron.duckdns.org/oauth2/start?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email"
 
 spec:
   ingressClassName: nginx
@@ -154,7 +163,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: n8n-rest-ingress
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app.kubernetes.io/part-of: n8n-rag-platform
   annotations:
@@ -163,6 +172,9 @@ metadata:
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/rewrite-target: "/rest/$1"
+    nginx.ingress.kubernetes.io/auth-url: "https://rawhideron.duckdns.org/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://rawhideron.duckdns.org/oauth2/start?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email"
 
     nginx.ingress.kubernetes.io/proxy-read-timeout: "1800"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
@@ -200,7 +212,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: n8n-root-paths-ingress
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app.kubernetes.io/part-of: n8n-rag-platform
   annotations:
@@ -209,6 +221,9 @@ metadata:
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/rewrite-target: "/$1"
+    nginx.ingress.kubernetes.io/auth-url: "https://rawhideron.duckdns.org/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://rawhideron.duckdns.org/oauth2/start?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email"
 
 spec:
   ingressClassName: nginx
@@ -235,7 +250,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: n8n-proxy-headers
-  namespace: google-rag
+  namespace: n8n-rag
 data:
   X-Forwarded-Proto: "https"
   X-Forwarded-Host: "rawhideron.duckdns.org"

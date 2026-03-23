@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: google-rag
+  name: n8n-rag
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/part-of: n8n-rag-platform

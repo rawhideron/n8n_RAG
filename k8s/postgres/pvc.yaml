@@ -2,7 +2,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgres-storage
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app: postgres
 spec:

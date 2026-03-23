@@ -2,7 +2,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: n8n-storage
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app: n8n
 spec:
@@ -17,7 +17,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: n8n-shared
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app: n8n
 spec:

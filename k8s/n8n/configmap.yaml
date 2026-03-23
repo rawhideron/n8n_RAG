@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: n8n-config
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app: n8n
 data:
@@ -36,3 +36,7 @@ data:
 
   # Trust the nginx ingress proxy
   N8N_TRUST_ALL_PROXIES: "true"
+
+  # Disable n8n's built-in login — authentication is handled entirely by
+  # Keycloak via oauth2-proxy at the ingress layer.
+  N8N_USER_MANAGEMENT_DISABLED: "true"

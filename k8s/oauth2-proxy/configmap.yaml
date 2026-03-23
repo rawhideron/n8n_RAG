@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: oauth2-proxy-config
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app: oauth2-proxy
 data:

@@ -1,9 +1,9 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# All namespaced resources go into google-rag.
+# All namespaced resources go into n8n-rag.
 # (ClusterIssuer is cluster-scoped and ignores this setting.)
-namespace: google-rag
+namespace: n8n-rag
 
 # ============================================================
 # Resource manifests
@@ -59,7 +59,7 @@ resources:
 # ============================================================
 secretGenerator:
   - name: n8n-rag-secrets
-    namespace: google-rag
+    namespace: n8n-rag
     envs:
       - .env.secrets
 
@@ -69,7 +69,7 @@ secretGenerator:
 # ============================================================
 configMapGenerator:
   - name: n8n-workflows
-    namespace: google-rag
+    namespace: n8n-rag
     files:
       - n8n/demo-data/workflows/srOnR8PAY3u4RSwb.json
       - n8n/demo-data/workflows/chat_with_memory.json
@@ -77,7 +77,7 @@ configMapGenerator:
       - n8n/demo-data/workflows/local_RAG_ai_agents.json
 
   - name: n8n-credentials
-    namespace: google-rag
+    namespace: n8n-rag
     files:
       - n8n/demo-data/credentials/xHuYe0MDGOs9IpBW.json
       - n8n/demo-data/credentials/sFfERYppMeBnFNeA.json

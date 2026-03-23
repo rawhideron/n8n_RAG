@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ollama
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app: ollama
 spec:

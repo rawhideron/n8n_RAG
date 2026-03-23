@@ -2,7 +2,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: qdrant-storage
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app: qdrant
 spec:

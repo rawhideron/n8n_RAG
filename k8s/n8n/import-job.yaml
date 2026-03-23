@@ -6,7 +6,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: n8n-import
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app: n8n-import
 spec:

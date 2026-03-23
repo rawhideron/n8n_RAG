@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app: postgres
 spec:

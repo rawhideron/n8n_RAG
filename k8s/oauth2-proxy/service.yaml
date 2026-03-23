@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: oauth2-proxy
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app: oauth2-proxy
 spec:

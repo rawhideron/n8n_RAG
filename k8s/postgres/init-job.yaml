@@ -1,12 +1,12 @@
 ---
 # One-time Job: creates the 'keycloak' database in PostgreSQL.
 # Idempotent — safe to run multiple times.
-# Run with: kubectl apply -f k8s/postgres/init-job.yaml -n google-rag
+# Run with: kubectl apply -f k8s/postgres/init-job.yaml -n n8n-rag
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: postgres-init
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app: postgres-init
 spec:

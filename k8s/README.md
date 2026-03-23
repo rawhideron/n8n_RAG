@@ -24,10 +24,10 @@ nginx-ingress  (rawhideron.duckdns.org)
 
 ### Namespace
 
-All resources live in the **`google-rag`** namespace.
+All resources live in the **`n8n-rag`** namespace.
 
 > **Note:** Kubernetes namespace names must follow RFC 1123 — no underscores.
-> `google_rag` becomes `google-rag`.
+> `google_rag` becomes `n8n-rag`.
 
 ### Auth flow
 
@@ -139,7 +139,7 @@ kubectl apply -k .
 ```
 
 Kustomize will:
-- Create the `google-rag` namespace
+- Create the `n8n-rag` namespace
 - Generate Secrets from `.env.secrets`
 - Generate ConfigMaps from workflow/credential JSON files
 - Deploy all services in the correct order
@@ -150,33 +150,33 @@ The `postgres-init` Job creates the `keycloak` database.
 Keycloak will not start until this completes.
 
 ```bash
-kubectl -n google-rag wait --for=condition=complete job/postgres-init --timeout=120s
+kubectl -n n8n-rag wait --for=condition=complete job/postgres-init --timeout=120s
 ```
 
 ### 8. Wait for Keycloak
 
 ```bash
-kubectl -n google-rag rollout status deployment/keycloak --timeout=300s
+kubectl -n n8n-rag rollout status deployment/keycloak --timeout=300s
 ```
 
 ### 9. Pull Ollama models (long download — ~2.5 GB)
 
 ```bash
-kubectl -n google-rag wait --for=condition=complete job/ollama-model-init --timeout=1800s
+kubectl -n n8n-rag wait --for=condition=complete job/ollama-model-init --timeout=1800s
 ```
 
 ### 10. Run the n8n demo-data import
 
 ```bash
-kubectl -n google-rag wait --for=condition=complete job/n8n-import --timeout=120s
+kubectl -n n8n-rag wait --for=condition=complete job/n8n-import --timeout=120s
 ```
 
 ### 11. Verify
 
 ```bash
-kubectl -n google-rag get pods
-kubectl -n google-rag get ingress
-kubectl -n google-rag get certificate
+kubectl -n n8n-rag get pods
+kubectl -n n8n-rag get ingress
+kubectl -n n8n-rag get certificate
 ```
 
 All pods should be `Running`, certificate should be `Ready: True`.
@@ -230,26 +230,26 @@ Actual workflow execution is controlled by n8n's own permission system.
 
 ```bash
 # Check all resources
-kubectl -n google-rag get all
+kubectl -n n8n-rag get all
 
 # View n8n logs
-kubectl -n google-rag logs -l app=n8n -f
+kubectl -n n8n-rag logs -l app=n8n -f
 
 # View Keycloak logs
-kubectl -n google-rag logs -l app=keycloak -f
+kubectl -n n8n-rag logs -l app=keycloak -f
 
 # View oauth2-proxy logs
-kubectl -n google-rag logs -l app=oauth2-proxy -f
+kubectl -n n8n-rag logs -l app=oauth2-proxy -f
 
 # Restart n8n
-kubectl -n google-rag rollout restart deployment/n8n
+kubectl -n n8n-rag rollout restart deployment/n8n
 
 # Re-run the n8n import job (if needed — run from project root)
-kubectl -n google-rag delete job n8n-import
-kubectl -n google-rag apply -f k8s/n8n/import-job.yaml
+kubectl -n n8n-rag delete job n8n-import
+kubectl -n n8n-rag apply -f k8s/n8n/import-job.yaml
 
 # Check TLS certificate status
-kubectl -n google-rag describe certificate n8n-rag-tls
+kubectl -n n8n-rag describe certificate n8n-rag-tls
 
 # Check cert-manager logs
 kubectl -n cert-manager logs -l app=cert-manager -f
@@ -291,12 +291,12 @@ And install the NVIDIA device plugin in your cluster.
 
 ### Certificate not issued
 - Confirm ports 80/443 are open from the internet
-- Check: `kubectl describe challenge -n google-rag`
+- Check: `kubectl describe challenge -n n8n-rag`
 - Verify DuckDNS points to the correct LoadBalancer IP
 
 ### Keycloak won't start
-- Check the `postgres-init` Job completed: `kubectl -n google-rag get jobs`
-- Check Keycloak logs: `kubectl -n google-rag logs -l app=keycloak`
+- Check the `postgres-init` Job completed: `kubectl -n n8n-rag get jobs`
+- Check Keycloak logs: `kubectl -n n8n-rag logs -l app=keycloak`
 
 ### oauth2-proxy login loop
 - Ensure the `OAUTH2_PROXY_CLIENT_SECRET` in `.env.secrets` matches
@@ -310,5 +310,5 @@ And install the NVIDIA device plugin in your cluster.
 - Check that the ingress `/n8n` path routes to the n8n service
 
 ### Models not available in workflows
-- Check the Ollama model init Job: `kubectl -n google-rag logs job/ollama-model-init`
-- Re-run: `kubectl -n google-rag delete job ollama-model-init && kubectl apply -f ollama/model-init-job.yaml`
+- Check the Ollama model init Job: `kubectl -n n8n-rag logs job/ollama-model-init`
+- Re-run: `kubectl -n n8n-rag delete job ollama-model-init && kubectl apply -f ollama/model-init-job.yaml`

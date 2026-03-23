@@ -8,7 +8,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: ollama-model-init
-  namespace: google-rag
+  namespace: n8n-rag
   labels:
     app: ollama-model-init
 spec:
