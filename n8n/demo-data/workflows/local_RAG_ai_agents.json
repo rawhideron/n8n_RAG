@@ -100,14 +100,12 @@
             }
           ]
         },
-        "authentication": "oAuth2",
+        "authentication": "serviceAccount",
         "triggerOn": "specificFolder",
         "folderToWatch": {
           "__rl": true,
-          "value": "1914m3M7kRzkd5RJqAfzRY9EBcJrKemZC",
-          "mode": "list",
-          "cachedResultName": "Meeting Notes",
-          "cachedResultUrl": "https://drive.google.com/drive/folders/1914m3M7kRzkd5RJqAfzRY9EBcJrKemZC"
+          "value": "1hNkCHjw4tginmrP9MBx56Te5z1VDBUsK",
+          "mode": "id"
         },
         "event": "fileCreated",
         "options": {}
@@ -136,14 +134,12 @@
             }
           ]
         },
-        "authentication": "oAuth2",
+        "authentication": "serviceAccount",
         "triggerOn": "specificFolder",
         "folderToWatch": {
           "__rl": true,
-          "value": "1914m3M7kRzkd5RJqAfzRY9EBcJrKemZC",
-          "mode": "list",
-          "cachedResultName": "Meeting Notes",
-          "cachedResultUrl": "https://drive.google.com/drive/folders/1914m3M7kRzkd5RJqAfzRY9EBcJrKemZC"
+          "value": "1hNkCHjw4tginmrP9MBx56Te5z1VDBUsK",
+          "mode": "id"
         },
         "event": "fileUpdated",
         "options": {}
