@@ -187,6 +187,44 @@ spec:
                   number: 5678
 
 ---
+# Webhook ingress — rewrites /n8n/webhook/(.*)      → /webhook/$1
+#                        and /n8n/webhook-test/(.*) → /webhook-test/$1
+# Webhooks must bypass oauth2-proxy so external services can POST without a
+# Keycloak session. n8n handles its own credential/auth checks per workflow.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: n8n-webhook-ingress
+  namespace: n8n-rag
+  labels:
+    app.kubernetes.io/part-of: n8n-rag-platform
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: "/webhook$1/$2"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+
+spec:
+  ingressClassName: nginx
+
+  rules:
+    - host: rawhideron.duckdns.org
+      http:
+        paths:
+          - path: /n8n/webhook(-test)?/(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: n8n
+                port:
+                  number: 5678
+
+---
 # Root-path ingress — rewrites /n8n/rest/types/* → /types/*
 # n8n's type definition files (credentials.json, nodes.json, node-versions.json) are served
 # at the Express root /types/ path, NOT under /rest/. The n8n-rest-ingress would incorrectly

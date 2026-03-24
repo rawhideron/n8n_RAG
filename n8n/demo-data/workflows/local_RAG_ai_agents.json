@@ -121,9 +121,9 @@
         800
       ],
       "credentials": {
-        "googleDriveOAuth2Api": {
-          "id": "7BFgxdnUi34r5AQ8",
-          "name": "Google Drive account"
+        "googleApi": {
+          "id": "gdrive001",
+          "name": "Google Drive Service Account"
         }
       }
     },
@@ -157,9 +157,9 @@
         1008
       ],
       "credentials": {
-        "googleDriveOAuth2Api": {
-          "id": "7BFgxdnUi34r5AQ8",
-          "name": "Google Drive account"
+        "googleApi": {
+          "id": "gdrive001",
+          "name": "Google Drive Service Account"
         }
       }
     },
@@ -218,9 +218,9 @@
       ],
       "executeOnce": true,
       "credentials": {
-        "googleDriveOAuth2Api": {
-          "id": "7BFgxdnUi34r5AQ8",
-          "name": "Google Drive account"
+        "googleApi": {
+          "id": "gdrive001",
+          "name": "Google Drive Service Account"
         }
       }
     },
