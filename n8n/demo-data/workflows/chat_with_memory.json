@@ -11,7 +11,10 @@
       "name": "Chat Trigger",
       "type": "@n8n/n8n-nodes-langchain.chatTrigger",
       "typeVersion": 1,
-      "position": [200, 300],
+      "position": [
+        200,
+        300
+      ],
       "webhookId": "chat-memory-webhook"
     },
     {
@@ -19,14 +22,18 @@
         "operation": "executeQuery",
         "query": "SELECT * FROM get_chat_history($1, 5) ORDER BY message_timestamp ASC",
         "options": {
-          "queryReplacement": "session_id"
+          "queryReplacement": "session_id",
+          "alwaysOutputData": true
         }
       },
       "id": "get-chat-history",
       "name": "Get Chat History",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.4,
-      "position": [400, 300],
+      "position": [
+        400,
+        300
+      ],
       "credentials": {
         "postgres": {
           "id": "postgres-credentials",
@@ -42,7 +49,10 @@
       "name": "Build Conversation Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [600, 300]
+      "position": [
+        600,
+        300
+      ]
     },
     {
       "parameters": {
@@ -53,7 +63,10 @@
       "name": "Ollama Chat Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
       "typeVersion": 1,
-      "position": [800, 300],
+      "position": [
+        800,
+        300
+      ],
       "credentials": {
         "ollamaApi": {
           "id": "xHuYe0MDGOs9IpBW",
@@ -81,7 +94,10 @@
       "name": "Save User Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.4,
-      "position": [1000, 200],
+      "position": [
+        1000,
+        200
+      ],
       "credentials": {
         "postgres": {
           "id": "postgres-credentials",
@@ -109,7 +125,10 @@
       "name": "Save Assistant Response",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.4,
-      "position": [1000, 400],
+      "position": [
+        1000,
+        400
+      ],
       "credentials": {
         "postgres": {
           "id": "postgres-credentials",
@@ -129,7 +148,10 @@
       "name": "Get Full History",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.4,
-      "position": [1200, 300],
+      "position": [
+        1200,
+        300
+      ],
       "credentials": {
         "postgres": {
           "id": "postgres-credentials",
@@ -216,4 +238,4 @@
   "pinData": {},
   "versionId": "chat-memory-v1",
   "triggerCount": 0
-} 
+}
