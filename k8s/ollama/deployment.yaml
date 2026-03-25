@@ -55,7 +55,7 @@ spec:
               memory: 2Gi
               cpu: "1"
             limits:
-              memory: 8Gi
+              memory: 12Gi
               cpu: "4"
           # ---- NVIDIA GPU support (uncomment to enable) ----
           # resources:
