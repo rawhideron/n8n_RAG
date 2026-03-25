@@ -13,7 +13,7 @@
       ],
       "credentials": {
         "postgres": {
-          "id": "uNMbfa2UQCHM413e",
+          "id": "postgres-credentials",
           "name": "PostgresSQL"
         }
       }
