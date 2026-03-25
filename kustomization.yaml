@@ -25,7 +25,9 @@ resources:
   - k8s/n8n/configmap.yaml
   - k8s/n8n/deployment.yaml
   - k8s/n8n/service.yaml
-  - k8s/n8n/import-job.yaml
+  # import-job removed — run once manually on first deploy only.
+  # Re-adding it causes ArgoCD to re-import demo credentials on every sync,
+  # overwriting credentials set up in the n8n UI.
 
   # Qdrant
   - k8s/qdrant/pvc.yaml
