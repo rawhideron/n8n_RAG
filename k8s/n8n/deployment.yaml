@@ -72,6 +72,11 @@ spec:
                 secretKeyRef:
                   name: n8n-rag-secrets
                   key: N8N_USER_MANAGEMENT_JWT_SECRET
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-rag-secrets
+                  key: OPENAI_API_KEY
           volumeMounts:
             - name: n8n-storage
               mountPath: /home/node/.n8n

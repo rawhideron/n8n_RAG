@@ -20,41 +20,41 @@
     },
     {
       "parameters": {
-        "model": "llama3.2:latest",
+        "model": "gpt-4o-mini",
         "options": {}
       },
       "id": "7c464820-8934-4fd7-9adb-fa59064cae07",
-      "name": "Ollama Chat Model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1,
       "position": [
         448,
         480
       ],
       "credentials": {
-        "ollamaApi": {
-          "id": "X0gcjUEUE039KdEs",
-          "name": "Ollama account"
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
         }
       }
     },
     {
       "parameters": {
-        "model": "llama3.2:latest",
+        "model": "gpt-4o-mini",
         "options": {}
       },
       "id": "e10577e3-f495-48c5-85d1-b3d06051feaf",
-      "name": "Ollama Model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "name": "OpenAI Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1,
       "position": [
         1488,
         416
       ],
       "credentials": {
-        "ollamaApi": {
-          "id": "X0gcjUEUE039KdEs",
-          "name": "Ollama account"
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
         }
       }
     },
@@ -74,20 +74,20 @@
     },
     {
       "parameters": {
-        "model": "nomic-embed-text:latest"
+        "model": "text-embedding-3-small"
       },
       "id": "aee2dc72-764d-46e3-b1fc-6dc3ae11c33a",
-      "name": "Embeddings Ollama",
-      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "name": "Embeddings OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
       "typeVersion": 1,
       "position": [
         1360,
         512
       ],
       "credentials": {
-        "ollamaApi": {
-          "id": "X0gcjUEUE039KdEs",
-          "name": "Ollama account"
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
         }
       }
     },
@@ -277,20 +277,20 @@
     },
     {
       "parameters": {
-        "model": "nomic-embed-text:latest"
+        "model": "text-embedding-3-small"
       },
       "id": "f1df2f61-b113-4cc3-a978-8bf753244b20",
-      "name": "Embeddings Ollama1",
-      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "name": "Embeddings OpenAI1",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
       "typeVersion": 1,
       "position": [
         1232,
         1008
       ],
       "credentials": {
-        "ollamaApi": {
-          "id": "X0gcjUEUE039KdEs",
-          "name": "Ollama account"
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
         }
       }
     },
@@ -384,7 +384,7 @@
       "parameters": {
         "code": {
           "execute": {
-            "code": "const { QdrantVectorStore } = require(\"@langchain/qdrant\");\nconst { OllamaEmbeddings } = require(\"@langchain/community/embeddings/ollama\");\n\nconst embeddings = new OllamaEmbeddings({\n  model: \"nomic-embed-text\",\n  baseUrl: \"http://ollama:11434\"\n});\n\nconst vectorStore = await QdrantVectorStore.fromExistingCollection(\n  embeddings,\n  {\n    url: \"http://qdrant:6333\",\n    collectionName: \"documents\",\n  }\n);\n\nconst fileIdToDelete = this.getInputData()[0].json.file_id;\n\nconst filter = {\n        must: [\n            {\n                key: \"metadata.file_id\",\n                match: {\n                    value: fileIdToDelete,\n                },\n            },\n        ],\n    }\n\n// const results = await vectorStore.similaritySearch(\"this\", 10, filter);\n// const idsToDelete = results.map((doc) => doc.id);\n\n// NOT IMPLEMENTED!\n// await vectorStore.delete({ ids: idsToDelete });\n\nawait vectorStore.client.delete(\"documents\", {\n  filter\n});\n\nreturn [ {json: { file_id: fileIdToDelete } } ];\n"
+            "code": "const { QdrantVectorStore } = require(\"@langchain/qdrant\");\nconst { OpenAIEmbeddings } = require(\"@langchain/openai\");\n\nconst embeddings = new OpenAIEmbeddings({\n  model: \"text-embedding-3-small\",\n  apiKey: process.env.OPENAI_API_KEY\n});\n\nconst vectorStore = await QdrantVectorStore.fromExistingCollection(\n  embeddings,\n  {\n    url: \"http://qdrant:6333\",\n    collectionName: \"documents\",\n  }\n);\n\nconst fileIdToDelete = this.getInputData()[0].json.file_id;\n\nconst filter = {\n        must: [\n            {\n                key: \"metadata.file_id\",\n                match: {\n                    value: fileIdToDelete,\n                },\n            },\n        ],\n    }\n\nawait vectorStore.client.delete(\"documents\", {\n  filter\n});\n\nreturn [ {json: { file_id: fileIdToDelete } } ];\n"
           }
         },
         "inputs": {
@@ -525,7 +525,7 @@
         ]
       ]
     },
-    "Ollama Chat Model": {
+    "OpenAI Chat Model": {
       "ai_languageModel": [
         [
           {
@@ -536,7 +536,7 @@
         ]
       ]
     },
-    "Ollama Model": {
+    "OpenAI Model": {
       "ai_languageModel": [
         [
           {
@@ -547,7 +547,7 @@
         ]
       ]
     },
-    "Embeddings Ollama": {
+    "Embeddings OpenAI": {
       "ai_embedding": [
         [
           {
@@ -635,7 +635,7 @@
         ]
       ]
     },
-    "Embeddings Ollama1": {
+    "Embeddings OpenAI1": {
       "ai_embedding": [
         [
           {
